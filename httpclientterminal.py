@@ -1,3 +1,4 @@
+#wolf-http-client-terminal/httpclientterminal.py
 import requests
 import json
 from tabulate import tabulate
@@ -35,7 +36,10 @@ def list_parties():
             print("-" * 80)
 
             # Préparer les données pour l'affichage en tableau
-            headers = ["ID", "Nom de partie", "Grille", "Joueurs", "Villageois", "Loups-garous"]
+            # Modifier les en-têtes du tableau
+            headers = ["ID", "Nom de partie", "Grille", "Joueurs", "Villageois", "Loups-garous", "Tours Max", "Durée Tour"]
+            
+            # Initialiser table_data comme une liste vide
             table_data = []
 
             # Récupérer les détails de toutes les parties en une seule requête si possible
@@ -58,13 +62,16 @@ def list_parties():
 
                 # Formater les données
                 title = party_details.get("title_party", f"Partie {party_id}")
-                grid_size = party_details.get('grid_size', 10)
-                grid_display = f"{grid_size}×{grid_size}"
+                grid_rows = party_details.get('grid_rows', 10)
+                grid_cols = party_details.get('grid_cols', 10)
+                grid_display = f"{grid_rows}×{grid_cols}"
                 max_players = f"{party_details.get('current_players', 0)}/{party_details.get('max_players', 8)}"
                 villagers = party_details.get('villagers_count', 0)
                 werewolves = party_details.get('werewolves_count', 0)
+                max_turns = party_details.get('max_turns', 30)
+                turn_duration = party_details.get('turn_duration', 60)
 
-                table_data.append([party_id, title, grid_display, max_players, villagers, werewolves])
+                table_data.append([party_id, title, grid_display, max_players, villagers, werewolves, max_turns, f"{turn_duration}s"])
 
             print(tabulate(table_data, headers=headers, tablefmt="grid"))
             print("-" * 80)
@@ -100,7 +107,8 @@ def get_party_details(party_id):
     return {
         "id_party": party_id,
         "title_party": f"Partie {party_id}",
-        "grid_size": 10,
+        "grid_rows": 10,
+        "grid_cols": 10,
         "max_players": 8,
         "current_players": 0,
         "max_turns": 30,
