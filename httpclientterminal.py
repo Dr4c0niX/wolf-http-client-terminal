@@ -1,6 +1,6 @@
 import requests
 import json
-from tabulate import tabulate  # Vous devrez peut-être installer cette bibliothèque: pip install tabulate
+from tabulate import tabulate
 import time
 import os
 
@@ -21,39 +21,51 @@ def list_parties():
     """Liste toutes les parties disponibles"""
     print_header()
     print("Récupération de la liste des parties...\n")
-    
+
     try:
         response = requests.get(f"{BASE_URL}/list_parties")
         if response.status_code == 200:
             parties_info = response.json()
-            
+
             if not parties_info.get("id_parties"):
                 print("Aucune partie disponible.")
                 return []
-            
+
             print("PARTIES DISPONIBLES :")
             print("-" * 80)
-            
+
             # Préparer les données pour l'affichage en tableau
             headers = ["ID", "Nom de partie", "Grille", "Joueurs", "Villageois", "Loups-garous"]
             table_data = []
-            
+
+            # Récupérer les détails de toutes les parties en une seule requête si possible
+            try:
+                party_details_response = requests.get(f"{BASE_URL}/all_parties_details")
+                if party_details_response.status_code == 200:
+                    all_parties_details = party_details_response.json()
+                else:
+                    all_parties_details = {}
+            except:
+                all_parties_details = {}
+
             for party_id in parties_info.get("id_parties", []):
-                if "parties_details" in parties_info and str(party_id) in parties_info["parties_details"]:
-                    party_details = parties_info["parties_details"][str(party_id)]
+                # Essayer d'abord d'obtenir les détails à partir de la réponse globale
+                if all_parties_details and str(party_id) in all_parties_details:
+                    party_details = all_parties_details[str(party_id)]
+                # Sinon, faire une requête individuelle
                 else:
                     party_details = get_party_details(party_id)
-                
+
                 # Formater les données
-                title = party_details.get("title", f"Partie {party_id}")
+                title = party_details.get("title_party", f"Partie {party_id}")
                 grid_size = party_details.get('grid_size', 10)
                 grid_display = f"{grid_size}×{grid_size}"
                 max_players = f"{party_details.get('current_players', 0)}/{party_details.get('max_players', 8)}"
                 villagers = party_details.get('villagers_count', 0)
                 werewolves = party_details.get('werewolves_count', 0)
-                
+
                 table_data.append([party_id, title, grid_display, max_players, villagers, werewolves])
-            
+
             print(tabulate(table_data, headers=headers, tablefmt="grid"))
             print("-" * 80)
             return table_data
@@ -75,11 +87,19 @@ def get_party_details(party_id):
             return response.json()
     except:
         pass
-    
+
+    # Si l'API de détails de partie n'est pas disponible, essayer de récupérer des informations de base
+    try:
+        response = requests.get(f"{BASE_URL}/party/{party_id}")
+        if response.status_code == 200:
+            return response.json()
+    except:
+        pass
+
     # Données simulées si le serveur ne fournit pas ces détails
     return {
         "id_party": party_id,
-        "title": f"Partie {party_id}",
+        "title_party": f"Partie {party_id}",
         "grid_size": 10,
         "max_players": 8,
         "current_players": 0,
@@ -93,14 +113,14 @@ def subscribe_to_party():
     """S'inscrire à une partie existante"""
     print_header()
     parties = list_parties()
-    
+
     if not parties:
         input("\nAppuyez sur Entrée pour continuer...")
         return
-    
+
     try:
         party_id = int(input("\nEntrez l'ID de la partie à rejoindre : "))
-        
+
         # Vérifier que l'ID de partie existe dans la liste
         party_ids = [party[0] for party in parties]
         if party_id not in party_ids:
@@ -111,31 +131,31 @@ def subscribe_to_party():
         print("ID invalide. Veuillez entrer un nombre.")
         input("\nAppuyez sur Entrée pour continuer...")
         return
-    
+
     player_name = input("Entrez votre nom de joueur : ")
     if not player_name:
         print("Le nom du joueur est obligatoire.")
         input("\nAppuyez sur Entrée pour continuer...")
         return
-    
+
     # Demander la préférence de rôle
     print("\nChoisissez votre préférence de rôle :")
     print("1 - Villageois")
     print("2 - Loup-garou")
     role_choice = input("Votre choix (1 ou 2) : ")
-    
+
     role = "villageois" if role_choice == "1" else "loup-garou"
-    
+
     data = {
         "player": player_name,
         "id_party": party_id,
         "role_preference": role
     }
-    
+
     try:
         print(f"\nConnexion au serveur pour s'inscrire à la partie {party_id}...")
         response = requests.post(f"{BASE_URL}/subscribe", json=data)
-        
+
         if response.status_code == 200:
             result = response.json()["response"]
             print("\n===== INSCRIPTION RÉUSSIE =====")
@@ -145,28 +165,28 @@ def subscribe_to_party():
             print(f"\nErreur : Impossible de s'inscrire à la partie. Code: {response.status_code}")
     except Exception as e:
         print(f"\nErreur lors de la connexion au serveur : {e}")
-    
+
     input("\nAppuyez sur Entrée pour continuer...")
 
 def start_solo_game():
     """Lance une partie en mode solo (contre des IA)"""
     print_header()
     print("=== CRÉATION D'UNE PARTIE SOLO ===\n")
-    
+
     player_name = input("Entrez votre nom de joueur : ")
     if not player_name:
         print("Le nom du joueur est obligatoire.")
         input("\nAppuyez sur Entrée pour continuer...")
         return
-    
+
     # Demander la préférence de rôle
     print("\nChoisissez votre préférence de rôle :")
     print("1 - Villageois")
     print("2 - Loup-garou")
     role_choice = input("Votre choix (1 ou 2) : ")
-    
+
     role = "villageois" if role_choice == "1" else "loup-garou"
-    
+
     try:
         # Requête pour créer une nouvelle partie solo
         data = {
@@ -174,10 +194,10 @@ def start_solo_game():
             "role_preference": role,
             "solo_mode": True
         }
-        
+
         print("\nCréation de la partie solo en cours...")
         response = requests.post(f"{BASE_URL}/create_solo_game", json=data)
-        
+
         if response.status_code == 200:
             result = response.json()
             print("\n===== PARTIE SOLO CRÉÉE =====")
@@ -187,7 +207,7 @@ def start_solo_game():
             print(f"\nErreur : Impossible de créer une partie solo. Code: {response.status_code}")
     except Exception as e:
         print(f"\nErreur lors de la connexion au serveur : {e}")
-    
+
     input("\nAppuyez sur Entrée pour continuer...")
 
 def main():
@@ -201,9 +221,9 @@ def main():
         print("3 - Créer une partie solo")
         print("4 - Quitter")
         print("-" * 30)
-        
+
         choix = input("Votre choix : ")
-        
+
         if choix == "1":
             list_parties()
             input("\nAppuyez sur Entrée pour continuer...")
