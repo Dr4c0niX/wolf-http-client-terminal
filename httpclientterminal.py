@@ -4,7 +4,7 @@ import json
 from tabulate import tabulate
 import time
 import os
-from soloclient import start_solo_game_local
+import sys  # Ajout de l'import manquant
 
 BASE_URL = "http://localhost:8080"
 
@@ -105,18 +105,18 @@ def get_party_details(party_id):
         pass
 
     # Données simulées si le serveur ne fournit pas ces détails
-    # return {
-    #     "id_party": party_id,
-    #     "title_party": f"Partie {party_id}",
-    #     "grid_rows": 10,
-    #     "grid_cols": 10,
-    #     "max_players": 8,
-    #     "current_players": 0,
-    #     "max_turns": 30,
-    #     "turn_duration": 60,
-    #     "villagers_count": 0,
-    #     "werewolves_count": 0
-    # }
+    return {
+        "id_party": party_id,
+        "title_party": f"Partie {party_id}",
+        "grid_rows": 10,
+        "grid_cols": 10,
+        "max_players": 8,
+        "current_players": 0,
+        "max_turns": 30,
+        "turn_duration": 60,
+        "villagers_count": 0,
+        "werewolves_count": 0
+    }
 
 def subscribe_to_party():
     """S'inscrire à une partie existante"""
@@ -178,10 +178,11 @@ def subscribe_to_party():
     input("\nAppuyez sur Entrée pour continuer...")
 
 def start_solo_game():
-    """Lance une partie en mode solo (contre des IA)"""
+    """Lance une partie en mode solo avec game-local.py"""
     print_header()
     print("=== CRÉATION D'UNE PARTIE SOLO ===\n")
 
+    # Demande des informations de base
     player_name = input("Entrez votre nom de joueur : ")
     if not player_name:
         print("Le nom du joueur est obligatoire.")
@@ -195,30 +196,77 @@ def start_solo_game():
     role_choice = input("Votre choix (1 ou 2) : ")
 
     role = "villageois" if role_choice == "1" else "loup-garou"
-
+    
+    # Configuration de la taille de la grille
+    print("\n=== Configuration du plateau de jeu ===")
+    lignes = 5
+    colonnes = 5
     try:
-        # Requête pour créer une nouvelle partie solo
-        data = {
-            "player_name": player_name,
-            "role_preference": role,
-            "solo_mode": True
-        }
-
-        print("\nCréation de la partie solo en cours...")
-        response = requests.post(f"{BASE_URL}/create_solo_game", json=data)
-
-        if response.status_code == 200:
-            result = response.json()
-            print("\n===== PARTIE SOLO CRÉÉE =====")
-            print(f"ID Partie : {result.get('id_party')}")
-            print(f"ID Joueur : {result.get('id_player')}")
-        else:
-            print(f"\nErreur : Impossible de créer une partie solo. Code: {response.status_code}")
+        taille = input(f"Taille du plateau (exemple: '5 5' pour 5×5, Entrée pour {lignes}×{colonnes}): ").strip()
+        if taille:
+            lignes, colonnes = map(int, taille.split())
+    except ValueError:
+        print("Format invalide. Utilisation des valeurs par défaut.")
+    
+    # Configuration du nombre d'obstacles
+    nombre_obstacles = 3
+    try:
+        obs = input(f"Nombre d'obstacles (Entrée pour {nombre_obstacles}): ").strip()
+        if obs:
+            nombre_obstacles = int(obs)
+    except ValueError:
+        print("Format invalide. Utilisation de la valeur par défaut.")
+    
+    # Configuration du temps par tour
+    temps_tour = 30
+    try:
+        temps = input(f"Temps par tour en secondes (Entrée pour {temps_tour}): ").strip()
+        if temps:
+            temps_tour = int(temps)
+    except ValueError:
+        print("Format invalide. Utilisation de la valeur par défaut.")
+    
+    # Configuration du nombre maximum de tours
+    tours_max = 100
+    try:
+        tours = input(f"Nombre maximum de tours (Entrée pour {tours_max}): ").strip()
+        if tours:
+            tours_max = int(tours)
+    except ValueError:
+        print("Format invalide. Utilisation de la valeur par défaut.")
+    
+    print("\nLancement de la partie solo...")
+    print(f"Configuration: Plateau {lignes}×{colonnes}, {nombre_obstacles} obstacles, {temps_tour}s par tour, max {tours_max} tours")
+    
+    try:
+        # Chemin vers le script du jeu en version terminal
+        script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "game-local.py")
+        
+        # Vérification de l'existence du fichier
+        if not os.path.exists(script_path):
+            raise FileNotFoundError(f"Le script {script_path} n'existe pas.")
+        
+        print(f"Chemin du script: {script_path}")
+        
+        # Définir les variables d'environnement pour le jeu solo
+        env_vars = os.environ.copy()
+        env_vars['PLAYER_NAME'] = player_name
+        env_vars['PLAYER_ROLE'] = role
+        env_vars['GRID_ROWS'] = str(lignes)
+        env_vars['GRID_COLS'] = str(colonnes)
+        env_vars['OBSTACLES'] = str(nombre_obstacles)
+        env_vars['TURN_DURATION'] = str(temps_tour)
+        env_vars['MAX_TURNS'] = str(tours_max)
+        
+        # Lancer le jeu en mode terminal
+        print("Lancement du processus...")
+        import subprocess
+        result = subprocess.run([sys.executable, script_path], env=env_vars)
+        
     except Exception as e:
-        print(f"\nErreur lors de la connexion au serveur : {e}")
+        print(f"\nErreur lors du lancement du jeu solo: {e}")
 
-    input("\nAppuyez sur Entrée pour continuer...")
-
+    input("\nAppuyez sur Entrée pour revenir au menu principal...")
 
 def main():
     """Fonction principale qui affiche le menu et gère les interactions"""
@@ -228,7 +276,7 @@ def main():
         print("-" * 30)
         print("1 - Lister les parties")
         print("2 - S'inscrire à une partie")
-        print("3 - Jouer en mode solo local")
+        print("3 - Créer une partie solo")
         print("4 - Quitter")
         print("-" * 30)
 
@@ -240,12 +288,13 @@ def main():
         elif choix == "2":
             subscribe_to_party()
         elif choix == "3":
-            start_solo_game_local()
+            start_solo_game()
         elif choix == "4":
             print("\nMerci d'avoir joué au Loup-Garou. À bientôt !")
             break
         else:
             print("\nChoix invalide, veuillez réessayer.")
             time.sleep(1)
+
 if __name__ == "__main__":
     main()
