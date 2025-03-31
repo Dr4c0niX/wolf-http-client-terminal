@@ -4,6 +4,7 @@ import json
 from tabulate import tabulate
 import time
 import os
+from soloclient import start_solo_game_local
 
 BASE_URL = "http://localhost:8080"
 
@@ -104,18 +105,18 @@ def get_party_details(party_id):
         pass
 
     # Données simulées si le serveur ne fournit pas ces détails
-    return {
-        "id_party": party_id,
-        "title_party": f"Partie {party_id}",
-        "grid_rows": 10,
-        "grid_cols": 10,
-        "max_players": 8,
-        "current_players": 0,
-        "max_turns": 30,
-        "turn_duration": 60,
-        "villagers_count": 0,
-        "werewolves_count": 0
-    }
+    # return {
+    #     "id_party": party_id,
+    #     "title_party": f"Partie {party_id}",
+    #     "grid_rows": 10,
+    #     "grid_cols": 10,
+    #     "max_players": 8,
+    #     "current_players": 0,
+    #     "max_turns": 30,
+    #     "turn_duration": 60,
+    #     "villagers_count": 0,
+    #     "werewolves_count": 0
+    # }
 
 def subscribe_to_party():
     """S'inscrire à une partie existante"""
@@ -218,6 +219,7 @@ def start_solo_game():
 
     input("\nAppuyez sur Entrée pour continuer...")
 
+
 def main():
     """Fonction principale qui affiche le menu et gère les interactions"""
     while True:
@@ -226,7 +228,7 @@ def main():
         print("-" * 30)
         print("1 - Lister les parties")
         print("2 - S'inscrire à une partie")
-        print("3 - Créer une partie solo")
+        print("3 - Jouer en mode solo local")
         print("4 - Quitter")
         print("-" * 30)
 
@@ -238,13 +240,12 @@ def main():
         elif choix == "2":
             subscribe_to_party()
         elif choix == "3":
-            start_solo_game()
+            start_solo_game_local()
         elif choix == "4":
             print("\nMerci d'avoir joué au Loup-Garou. À bientôt !")
             break
         else:
             print("\nChoix invalide, veuillez réessayer.")
             time.sleep(1)
-
 if __name__ == "__main__":
     main()
